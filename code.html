@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+  </style>
+</head>
+<body>
+<!-- STITCH_THREEJS_START:ANIMATION_29 class="fixed inset-0 w-full h-full bg-transparent" -->
+<div class="fixed inset-0 w-full h-full bg-transparent" style="display:block;">
+<script src="https://ajax.googleapis.com/ajax/libs/threejs/r125/three.min.js"></script>
+<div id="threejs-container-ANIMATION_29" style="width:100%;height:100%"></div>
+<script>
+(function() {
+  const container = document.getElementById('threejs-container-ANIMATION_29');
+  const devicePixelRatio = window.devicePixelRatio || 1;
+  # دليل وأكواد تحويل مشروع «نُور» الإسلامي إلى تطبيق ويب تقدمي (PWA)
+
+لتحويل مشروعك إلى تطبيق ويب تقدمي (PWA) يمكن تثبيته على هواتف أندرويد و iPhone وأجهزة الكمبيوتر مع العمل دون اتصال بالإنترنت وتشغيل الأذكار، تحتاج فقط إلى إضافة 3 ملفات أساسية إلى المجلد الرئيسي للمشروع.
+
+---
+
+## 1. ملف بيان التطبيق: `manifest.json`
+أنشئ ملفاً باسم `manifest.json` وضعه بجانب ملفات الـ HTML (`index.html` وغيرها):
+
+```json
+{
+  "name": "بوابة وتطبيق نُور الإسلامي",
+  "short_name": "نُور",
+  "description": "تطبيق إسلامي شامل: المصحف الشريف، مواقيت الصلاة، الأذكار والتذكير الصوتي، وإمساكية رمضان",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#064e3b",
+  "theme_color": "#064e3b",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "icons/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-96x96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "lifestyle", "utilities"],
+  "shortcuts": [
+    {
+      "name": "المصحف الشريف",
+      "short_name": "المصحف",
+      "url": "./quran.html",
+      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "الأذكار والتسبيح",
+      "short_name": "الأذكار",
+      "url": "./azkar.html",
+      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "إمساكية رمضان",
+      "short_name": "الإمساكية",
+      "url": "./ramadan.html",
+      "icons": [{ "src": "icons/icon-96x96.png", "sizes": "96x96" }]
+    }
+  ]
+}
+```
+
+---
+
+## 2. ملف عامل الخدمة: `sw.js` (Service Worker)
+أنشئ ملفاً باسم `sw.js` في نفس المجلد الرئيسي للمشروع. يتولى هذا الملف حفظ الصفحات للعمل في حالة انقطاع الإنترنت وإدارة إشعارات الأذكار الدورية:
+
+```javascript
+// اسم الإصدار ومخزن التخزين المؤقت (Cache)
+const CACHE_NAME = 'noor-islamic-v1';
+
+// قائمة الملفات المطلوب تخزينها مؤقتاً للعمل Offline
+const ASSETS_TO_CACHE = [
+  './',
+  './index.html',
+  './quran.html',
+  './azkar.html',
+  './ramadan.html',
+  './m-home.html',
+  './m-quran.html',
+  './m-azkar.html',
+  './m-qibla.html',
+  './m-settings.html',
+  './m-ramadan.html',
+  './manifest.json',
+  'https://cdn.tailwindcss.com',
+  'https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Tajawal:wght@300;400;500;700;800&display=swap'
+];
+
+// 1. مرحلة التثبيت: حفظ الموارد في التخزين المؤقت
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      console.log('[Service Worker] جاري تخزين صفحات تطبيق نور مؤقتاً...');
+      return cache.addAll(ASSETS_TO_CACHE);
+    }).then(() => self.skipWaiting())
+  );
+});
+
+// 2. مرحلة التفعيل: تنظيف التخزين المؤقت القديم
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cache) => {
+          if (cache !== CACHE_NAME) {
+            console.log('[Service Worker] إزالة الكاش القديم:', cache);
+            return caches.delete(cache);
+          }
+        })
+      );
+    }).then(() => self.clients.claim())
+  );
+});
+
+// 3. استراتيجية جلب البيانات: Network First مع العودة إلى Cache في حال انقطاع النت
+self.addEventListener('fetch', (event) => {
+  // استثناء إعلانات Google AdSense من الكاش
+  if (event.request.url.includes('googlesyndication.com') || event.request.url.includes('doubleclick.net')) {
+    return;
+  }
+
+  event.respondWith(
+    fetch(event.request)
+      .then((networkResponse) => {
+        // تحديث الكاش بنسخة طازجة إذا كان الطلب ناجحاً
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+        }
+        return networkResponse;
+      })
+      .catch(() => {
+        // عند انقطاع الإنترنت يتم فتح الملف من الكاش
+        return caches.match(event.request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          if (event.request.mode === 'navigate') {
+            return caches.match('./index.html');
+          }
+        });
+      })
+  );
+});
+
+// 4. دعم الإشعارات والتذكيرات في الخلفية
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      if (clientList.length > 0) {
+        return clientList[0].focus();
+      }
+      return clients.openWindow('./index.html');
+    })
+  );
+});
+```
+
+---
+
+## 3. كود التضمين والتشغيل داخل ملفات الـ HTML
+ضع هذا الكود في وسم `<head>` وفي نهاية `<body>` في كل صفحات الـ HTML لديك (أو في الصفحة الرئيسية `index.html`):
+
+### أ) داخل وسم `<head>`:
+```html
+<!-- إعدادات تطبيق الويب التقدمي PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#064e3b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="نُور">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+```
+
+### ب) قبل إغلاق وسَم `</body>` مباشرة:
+```html
+<script>
+  // تسجيل Service Worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then((registration) => {
+          console.log('✅ تم تسجيل Service Worker بنجاح:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('❌ فشل تسجيل Service Worker:', error);
+        });
+    });
+  }
+
+  // كود إظهار زر تثبيت التطبيق (Install Prompt) تلقائياً
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    // يمكن هنا إظهار بانر أو زر "تثبيت تطبيق نور على هاتفك"
+    console.log('التطبيق جاهز للتثبيت على الشاشة الرئيسية');
+  });
+</script>
+```
+
+---
+
+## 4. مجلد الأيقونات المطلوب
+أنشئ مجلداً باسم `icons` بجانب الملفات وضع فيه أيقونة التطبيق (شعار نور) بالمقاسات الشائعة:
+* `icon-192x192.png` (مهم جداً لأندرويد وشاشات الهاتف)
+* `icon-512x512.png` (مهم جداً لشاشة البداية Splash Screen ومتاجر التطبيقات)
+* يمكنك استخدام أي أداة مجانية مثل [Maskable.app](https://maskable.app) أو [Favicon Generator](https://realfavicongenerator.net) لإنشاء كافة المقاسات من صورة الشعار بضغطة زر واحدة.
+
+})();
+
+</div>
+<!-- STITCH_THREEJS_END:ANIMATION_29 -->
+</body>
+</html>
